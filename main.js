@@ -29,7 +29,7 @@ export default class Sketch{
         );
 
         // this.isometricFill();
-        this.camera.position.z = 2;
+        this.camera.position.z = 700;
 
         this.scene = new THREE.Scene();
         this.control = new OrbitControls(this.camera, this.renderer.domElement)
@@ -82,7 +82,7 @@ export default class Sketch{
     }
 
     addMesh(){
-        this.geometry = new THREE.PlaneBufferGeometry(1,1);
+        this.geometry = new THREE.PlaneBufferGeometry(390,844);
 
         this.material = new THREE.ShaderMaterial({
             vertexShader: vertex,

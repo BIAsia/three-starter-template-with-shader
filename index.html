@@ -16,6 +16,7 @@
         }
         canvas {
             display: block;
+            position: absolute;
         }
         #container {
             width: 100vw;
@@ -35,11 +36,21 @@
         a:visited {
             color: white;
         }
+        img {
+            position: absolute;
+            z-index: 10;
+            scale: 0.861;
+            height: 100vh;
+            left: 50%;
+            transform: translate(-58%);
+        }
     </style>
 </head>
 <body>
     
-    <div id="container"></div>
+    <div id="container">
+        <img src="images/Bg.png" alt="">
+    </div>
     <script src="main.js" type="module"></script>
     <footer>
         by biasia
