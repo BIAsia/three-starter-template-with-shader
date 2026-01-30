@@ -7,80 +7,114 @@ uniform float uTime;
 uniform vec3 uResolution;
 
 #define PI 3.1415927
-const float dots = 50.; //number of lights
 
-vec3 RAMP(vec3 cols[4], float x) {
-    x *= float(cols.length() - 1);
-    return mix(cols[int(x)], cols[int(x) + 1], smoothstep(0.0, 1.0, fract(x)));
+vec3 rgb2vec3(float r, float g, float b){
+    return vec3(r/255., g/255., b/255.);
 }
 
 mat2 rotate2d(float angle) {
     return mat2(cos(angle), -sin(angle), sin(angle), cos(angle));
 }
 
-vec3 RGBColor(vec3 rgb){
-    return vec3(rgb.r/255., rgb.g/255., rgb.b/255.);
+// float rectangle(vec2 uv, vec2 pos, float width, float height) {
+//  float t = 0.0;
+//  if ((uv.x > pos.x - width / 2.0) && (uv.x < pos.x + width / 2.0)
+//      && (uv.y > pos.y - height / 2.0) && (uv.y < pos.y + height / 2.0)) {
+//      t = 1.0;
+//  }
+//  return t;
+// }
+
+float sdRoundRect( in vec2 p, in vec2 b, in float r ) {
+    vec2 q = abs(p)-b+r;
+    return min(max(q.x,q.y),0.0) + length(max(q,0.0)) - r;
 }
 
-float rand(vec2 co, float time){
-    return fract(sin(dot(co.xy ,vec2(12.9898,78.233+time/10000.))) * 43758.5453);
+vec4 normalBlend(vec4 src, vec4 dst) {
+    float finalAlpha = src.a + dst.a * (1.0 - src.a);
+    return vec4(
+        (src.rgb * src.a + dst.rgb * dst.a * (1.0 - src.a)) / finalAlpha,
+        finalAlpha
+    );
+}
+
+float sigmoid(float t) {
+    return 1.0 / (1.0 + exp(-t));
+}
+
+float drawSquare(vec2 pos, vec2 size, float radius, float blur){
+    float rec = sdRoundRect(pos, size, radius+blur);
+    rec = sigmoid(rec/blur);
+    rec = clamp(rec, 0., 1.);
+    return rec;
 }
 
 void main() {
-    vec3 rgb = vec3(0., 1., uProgress);
     vec2 uv = vUV;
     vec2 coord = vec2(vUV.x*uResolution.y/uResolution.x,vUV.y);
 
-     float time = uTime*0.005;
+    vec3 colors[5];
+    colors[0] = rgb2vec3(0., 195., 125.);
+    colors[1] = rgb2vec3(0., 165., 155.);
+    colors[2] = rgb2vec3(0., 0., 0.);
+    colors[3] = rgb2vec3(125., 170., 31.);
+    colors[4] = rgb2vec3(167., 170., 31.);
 
-    vec3 mainColor = RGBColor(vec3(0., 0., 0.));
-    vec3 assistColor = RGBColor(vec3(26., 42., 108.));
-    vec3 assistColor2 = RGBColor(vec3(178., 31., 31.));
-    vec3 assistColor3 = RGBColor(vec3(223., 167., 25.));
+    // Affection
+    float time_a = 0.05;
+    float size_a = 0.1;
+    // Parameters
+    float uSpeed = 1.;
 
-    vec3[4] colors;
-    colors[0] = assistColor3;
-    colors[1] = assistColor2;
-    colors[2] = assistColor;
-    colors[3] = mainColor;
-    vec3 color = RAMP(colors, uv.y*0.5*abs(cos(time)-0.8));
+    float k = 844./390.;
+    uv.y = uv.y*(k);
+    float x = uv.x;
+    float y = uv.y;
+    //vec2 uv = vec2(x, y);
 
-    vec2 pos = vec2(0.5) - uv;
-    float r = length(pos) * .6;
-    float a = atan(pos.y, pos.x);
-    float count = 2.;
-    float shape =
-        abs(0.7*sin(a * (count * .5) + (time  * 0.8+0.4))) *
-        sin(a * count - (time  * 0.8+0.2))
-    ;
+    vec2 center = vec2(0.5, 0.5*k);
+    float speed = uSpeed * uTime * time_a;
 
-    float shape2 =
-        abs(0.2*sin(a * (count * .5) + (time  * 0.8 + 0.5))) *
-        cos(a * count*2. - (time  * 0.8+0.5))
-    ;
-    shape+=shape2;
+    vec2 low = vec2(0.1, 0.1);
+    vec2 high = vec2(0.52, 0.72);
 
-    shape = pow(shape,1.);
-    //r += 0.05*rand(uv,time*0.01);
-    color = mix(
-        color,
-        vec3(0.),
-        r
-    );
+    uv *= rotate2d(PI/4.);
+    center *= rotate2d(PI/4.);
+    low *= rotate2d(PI/4.);
+    high *= rotate2d(PI/4.);
 
-    color *= 1. +  0.5;
+    // Calculates
+    vec3 fragColor = vec3(0.);
 
-    float alpha = (1. - smoothstep(shape, shape + 0.8, r)) + (1. - smoothstep(shape, shape + 1.5, r)) * 0.2;
-    alpha = clamp(alpha, 0., 1.0);
-    alpha -= 0.1;
-    color *= alpha;
+    float timeIncrease = 0.5*(speed*0.02);
+    float opacityIncrease = 0.;
 
-    color.rgb += vec3(-0.1, 0.1, 0.05);
+    float rec0 = drawSquare(uv-center, vec2(fract(0.85+timeIncrease)), 0., 0.0);
+    fragColor = mix(colors[0],fragColor,clamp(rec0+0.8+opacityIncrease, 0., 1.));
 
-    color += assistColor;
-    gl_FragColor = vec4(vec3(color), 1.);
-    
+    //vec4 Rectangle = rectangle(uv, center, 0.6, 0.6, colors[1]);
+    float rec1 = drawSquare(uv-center, vec2(fract(0.6+timeIncrease)), 0., 0.05);
+    fragColor = mix(colors[0],fragColor,clamp(rec1+opacityIncrease, 0., 1.));
 
-    //gl_FragColor = vec4(vec3(fragColor.rgb), 1.);
+    float rec2 = drawSquare(uv-center, vec2(fract(0.65+timeIncrease)), 0., 0.);
+    fragColor = mix(colors[1],fragColor,clamp(rec2+0.7+opacityIncrease, 0., 1.));
+
+    float rec3 = drawSquare(uv-center, vec2(fract(0.45+timeIncrease)), 0., 0.07);
+    fragColor = mix(colors[2],fragColor,clamp(rec3+0.4+opacityIncrease, 0., 1.));
+
+    float rec4 = drawSquare(uv-center, vec2(fract(0.45+timeIncrease)), 0., 0.0);
+    fragColor = mix(colors[2],fragColor,clamp(rec4+0.8+opacityIncrease, 0., 1.));
+
+    float rec5 = drawSquare(uv-center, vec2(fract(0.3+timeIncrease)), 0., .05);
+    fragColor = mix(colors[3],fragColor,clamp(rec5+0.6+opacityIncrease, 0., 1.));
+
+    float rec6 = drawSquare(uv-center, vec2(fract(0.15+timeIncrease)), .0, 0.);
+    fragColor = mix(colors[4],fragColor,clamp(rec6+0.92+opacityIncrease, 0., 1.));
+
+    float rec7 = drawSquare(uv-center, vec2(fract(0.1+timeIncrease)), 0., .07);
+    fragColor = mix(colors[2],fragColor,clamp(rec7+0.5+opacityIncrease, 0., 1.));
+
+    fragColor = mix(vec3(0.), fragColor, 0.5);
+    gl_FragColor = vec4(vec3(fragColor), 1.);
 
 }
